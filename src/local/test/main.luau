@@ -481,7 +481,7 @@ local styles = StyleSheet:create({
 		BackgroundColor3 = Color3.fromRGB(255, 117, 117),
 	},
 	["Button:OnHover"] = {
-		BackgroundColor3 = Color3.fromRGB(255, 143, 143),
+		BackgroundColor3 = Color3.fromRGB(167, 90, 90),
 	},
 	["Button:OnPress"] = {
 		BackgroundColor3 = Color3.fromRGB(172, 79, 79),
@@ -497,7 +497,7 @@ return function()
 		local splash = Instance.new("Frame")
 		splash.Size = UDim2.fromOffset(0, 0)
 		splash.Position = UDim2.fromOffset(x, y)
-		splash.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+		splash.BackgroundColor3 = Color3.fromRGB(94, 40, 40)
 		splash.BackgroundTransparency = 0.3
 		splash.AnchorPoint = Vector2.new(0.5, 0.5)
 
