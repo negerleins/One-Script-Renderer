@@ -201,7 +201,7 @@ local Element = setmetatable({}, {
 				Children = children,
 				Object = output,
 				Id = HttpService:GenerateGUID(false),
-				Attributes = {}
+				Attributes = {},
 			}, {
 				__index = {
 					remove = function(self)
@@ -244,7 +244,7 @@ local Element = setmetatable({}, {
 						else
 							self.Attributes["Drag"] = false
 						end
-					end
+					end,
 				},
 				__metatable = "locked",
 			})
@@ -302,7 +302,9 @@ local Render = setmetatable({
 						local onRelease = rawget(props, "OnRelease")
 						local onHover = rawget(props, "OnHover")
 						local onDrag = rawget(props, "OnDrag")
+						local onMoved = rawget(props, "OnMoved")
 						local onHeartbeat = rawget(props, "OnHeartbeat")
+
 						local hasText = rawget(props, "Text")
 
 						if style then
@@ -318,11 +320,23 @@ local Render = setmetatable({
 							obj.Text = hasText
 						end
 
+						if onMoved then
+							local Context = `{element.Id}:OnMoved`
+
+							if not self.RBXSignal.Connections[Context] then
+								self.RBXSignal[Context] = obj.MouseMoved:Connect(function(...)
+									onMoved(element, ...)
+								end)
+							end
+						end
+
 						if onRelease and table.find({ "TextButton", "ImageButton" }, obj.ClassName) then
 							local Context = `{element.Id}:onRelease`
 
 							if not self.RBXSignal.Connections[Context] then
-								self.RBXSignal[Context] = obj.MouseButton1Up:Connect(onRelease, element)
+								self.RBXSignal[Context] = obj.MouseButton1Up:Connect(function(...)
+									onRelease(element, ...)
+								end)
 							end
 						end
 
@@ -330,7 +344,9 @@ local Render = setmetatable({
 							local Context = `{element.Id}:OnPress`
 
 							if not self.RBXSignal.Connections[Context] then
-								self.RBXSignal[Context] = obj.MouseButton1Down:Connect(onPress, element)
+								self.RBXSignal[Context] = obj.MouseButton1Down:Connect(function(...)
+									onPress(element, ...)
+								end)
 							end
 						end
 
@@ -340,65 +356,55 @@ local Render = setmetatable({
 							if not self.RBXSignal.Connections[Context] then
 								self.RBXSignal[Context] = RunService.Heartbeat:Connect(function(...)
 									onHeartbeat(element, ...)
-								end);
+								end)
 							end
 						end
 
-						if onDrag and RunService:IsRunning() then
+						if onDrag then
 							local Context = `{element.Id}:OnDrag`
 
 							if not self.RBXSignal.Connections[Context] then
-								self.RBXSignal[Context] = RunService.Heartbeat:Connect(function()
-									local StartPosition = rawget(element.Attributes, "StartPosition");
-									local StartMousePosition = rawget(element.Attributes, "StartMousePosition");
+								self.RBXSignal[Context] = RunService.RenderStepped:Connect(function()
+									local StartPosition = rawget(element.Attributes, "StartPosition")
+									local StartMousePosition = rawget(element.Attributes, "StartMousePosition")
+									local MousePosition = rawget(element.Attributes, "MousePosition")
 
-									if rawget(element.Attributes, "Drag") and StartPosition then
-										local Mouse = self.Player:GetMouse()
-										local __delta = Vector2.new(Mouse.X, Mouse.Y) - StartMousePosition
+									if rawget(element.Attributes, "Drag") and StartPosition and MousePosition then
+										local __delta = Vector2.new(MousePosition.X, MousePosition.Y) - StartMousePosition
 
-										onDrag(element, UDim2.new(
-											StartPosition.X.Scale,
-											StartPosition.X.Offset + __delta.X,
-											StartPosition.Y.Scale,
-											StartPosition.Y.Offset + __delta.Y
-										))
+										onDrag(
+											element,
+											UDim2.new(
+												StartPosition.X.Scale,
+												StartPosition.X.Offset + __delta.X,
+												StartPosition.Y.Scale,
+												StartPosition.Y.Offset + __delta.Y
+											)
+										)
 									end
 								end)
 							end
 						end
 
-						if onHover and RunService:IsRunning() then
-							local Context = `{element.Id}:OnHover`
+						if onHover then
+							local MouseEnterContext = `{element.Id}:MouseEnter`
 
-							if not self.RBXSignal.Connections[Context] then
-								self.RBXSignal[Context] = RunService.Heartbeat:Connect(function()
-									local Mouse = self.Player:GetMouse()
-									local mouseX, mouseY = Mouse.X, Mouse.Y
-
+							if not self.RBXSignal.Connections[MouseEnterContext] then
+								self.RBXSignal[MouseEnterContext] = obj.MouseEnter:Connect(function(X, Y)
 									local frameX = obj.AbsolutePosition.X
 									local frameY = obj.AbsolutePosition.Y
-									local frameWidth = obj.AbsoluteSize.X
-									local frameHeight = obj.AbsoluteSize.Y
 
-									if
-										mouseX > frameX
-										and mouseX < frameX + frameWidth
-										and mouseY > frameY
-										and mouseY < frameY + frameHeight
-									then
-										local relativeX = mouseX - frameX
-										local relativeY = mouseY - frameY
+									local relativeX = X - frameX
+									local relativeY = Y - frameY
+									onHover(element, true, relativeX, relativeY)
+								end)
+							end
 
-										if not element.Attributes["Hovering"] then
-											element.Attributes["Hovering"] = true;
-											onHover(element, true, relativeX, relativeY)
-										end
-									else
-										if element.Attributes["Hovering"] then
-											element.Attributes["Hovering"] = false;
-											onHover(element, false)
-										end
-									end
+							local MouseLeaveContext = `{element.Id}:MouseLeave`
+
+							if not self.RBXSignal.Connections[MouseLeaveContext] then
+								self.RBXSignal[MouseLeaveContext] = obj.MouseLeave:Connect(function()
+									onHover(element, false)
 								end)
 							end
 						end
@@ -471,115 +477,135 @@ local styles = StyleSheet:create({
 	["Button"] = {
 		Size = UDim2.fromOffset(200, 50),
 		ClipsDescendants = true,
-		AutoButtonColor = false
+		AutoButtonColor = false,
+		BackgroundColor3 = Color3.fromRGB(255, 117, 117),
+	},
+	["Button:OnHover"] = {
+		BackgroundColor3 = Color3.fromRGB(255, 143, 143),
+	},
+	["Button:OnPress"] = {
+		BackgroundColor3 = Color3.fromRGB(172, 79, 79),
 	},
 })
 
 Render.Location = RunService:IsRunning() and Players.LocalPlayer.PlayerGui or StarterGui
 Render.Style = styles.Screen
 
--- [Functions]
-local function createSplashEffect(parent, x, y)
-    local splash = Instance.new("Frame")
-    splash.Size = UDim2.fromOffset(0, 0)
-    splash.Position = UDim2.fromOffset(x, y)
-    splash.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    splash.BackgroundTransparency = 0.3
-    splash.AnchorPoint = Vector2.new(0.5, 0.5)
+return function()
+	-- [Functions]
+	local function createSplashEffect(parent, x, y)
+		local splash = Instance.new("Frame")
+		splash.Size = UDim2.fromOffset(0, 0)
+		splash.Position = UDim2.fromOffset(x, y)
+		splash.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+		splash.BackgroundTransparency = 0.3
+		splash.AnchorPoint = Vector2.new(0.5, 0.5)
 
-    local uiCorner = Instance.new("UICorner")
-    uiCorner.CornerRadius = UDim.new(1, 0)
-    uiCorner.Parent = splash
+		local uiCorner = Instance.new("UICorner")
+		uiCorner.CornerRadius = UDim.new(1, 0)
+		uiCorner.Parent = splash
 
-    splash.Parent = parent
+		splash.Parent = parent
 
-    local parentWidth = parent.AbsoluteSize.X
-    local parentHeight = parent.AbsoluteSize.Y
+		local parentWidth = parent.AbsoluteSize.X
+		local parentHeight = parent.AbsoluteSize.Y
 
-    local distToTopLeft = math.sqrt((x)^2 + (y)^2)
-    local distToTopRight = math.sqrt((parentWidth - x)^2 + (y)^2)
-    local distToBottomLeft = math.sqrt((x)^2 + (parentHeight - y)^2)
-    local distToBottomRight = math.sqrt((parentWidth - x)^2 + (parentHeight - y)^2)
+		local distToTopLeft = math.sqrt(x ^ 2 + y ^ 2)
+		local distToTopRight = math.sqrt((parentWidth - x) ^ 2 + y ^ 2)
+		local distToBottomLeft = math.sqrt(x ^ 2 + (parentHeight - y) ^ 2)
+		local distToBottomRight = math.sqrt((parentWidth - x) ^ 2 + (parentHeight - y) ^ 2)
 
-    local maxDistance = math.max(distToTopLeft, distToTopRight, distToBottomLeft, distToBottomRight)
-    local maxSize = maxDistance * 2
+		local maxDistance = math.max(distToTopLeft, distToTopRight, distToBottomLeft, distToBottomRight)
+		local maxSize = maxDistance * 2
 
-    local tweenInfo = TweenInfo.new(
-        0.6, -- Duration
-        Enum.EasingStyle.Quad,
-        Enum.EasingDirection.Out
-    )
+		local tweenInfo = TweenInfo.new(
+			0.6, -- Duration
+			Enum.EasingStyle.Quad,
+			Enum.EasingDirection.Out
+		)
 
-    local tween = game:GetService("TweenService"):Create(splash, tweenInfo, {
-        Size = UDim2.fromOffset(maxSize, maxSize),
-		Position = UDim2.new(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1
-    })
+		local tween = game:GetService("TweenService"):Create(splash, tweenInfo, {
+			Size = UDim2.fromOffset(maxSize, maxSize),
+			Position = UDim2.new(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+		})
 
-    tween:Play()
+		tween:Play()
 
-    tween.Completed:Connect(function()
-        splash:Destroy()
-    end)
+		tween.Completed:Connect(function()
+			splash:Destroy()
+		end)
 
-    return splash
-end
+		return splash
+	end
 
--- [Render]
-Render:screen({
-	["Main"] = Element.new("Frame", {
-		Style = styles.Main,
-		ClassName = "MainFrame",
-		OnDrag = function(self, position)
-			self.Properties.Style.data.Position = position;
-		end,
-	}, {
-		["Button"] = Element.new("TextButton", {
-			Style = styles.Button,
-			ClassName = "Button",
-			Text = "0",
-			OnPress = function(self)
-				monitorMemory("Render Destroy", function()
-					Render:destroy()
-				end)
+	-- [Render]
+	Render:screen({
+		["Main"] = Element.new("Frame", {
+			Style = styles.Main,
+			ClassName = "MainFrame",
+			OnDrag = function(self, position)
+				self.Properties.Style.data.Position = position
 			end,
-			OnHover = function(self, isHovering, x, y)
-				if isHovering then
-					createSplashEffect(Render:class("Button").Object, x, y)
-				end
-			end,
-			OnHeartbeat = function(self, ...)
-				local __number = tonumber(self.Properties.Text)
-				self.Properties.Text = (__number + 1)
-			end
-		}),
-		["ButtonDragger"] = Element.new("TextButton", {
-			Style = styles.Button,
-			ClassName = "ButtonDragger",
-			Text = "Drag Me",
-			OnPress = function(self)
-				local class = Render:class("MainFrame")
-				local Mouse = Render.Player:GetMouse()
-				class:draggable(class.Object.Position, Vector2.new(Mouse.X, Mouse.Y));
-			end,
-			OnRelease = function(self)
-				local class = Render:class("MainFrame")
-				class:draggable();
-			end,
-			OnHover = function(self, isHovering)
-				if not isHovering then
+		}, {
+			["Button"] = Element.new("TextButton", {
+				Style = styles.Button,
+				ClassName = "Button",
+				Text = "0",
+				OnPress = function(self)
+					monitorMemory("Render Destroy", function()
+						Render:destroy()
+					end)
+				end,
+				OnHover = function(self, isHovering, x, y)
+					if isHovering then
+						self.Properties.Style = styles["Button:OnHover"]
+						createSplashEffect(Render:class("Button").Object, x, y)
+					else
+						self.Properties.Style = styles["Button"]
+					end
+				end,
+				OnHeartbeat = function(self, ...)
+					local __number = tonumber(self.Properties.Text)
+					self.Properties.Text = (__number + 1)
+				end,
+			}),
+			["ButtonDragger"] = Element.new("TextButton", {
+				Style = styles.Button,
+				ClassName = "ButtonDragger",
+				Text = "Drag Me",
+				OnPress = function(self, x, y)
+					self.Properties.Style = styles["Button:OnPress"]
+
 					local class = Render:class("MainFrame")
-					class:draggable();
+					class:draggable(class.Object.Position, Vector2.new(x, y))
+				end,
+				OnRelease = function(self)
+					self.Properties.Style = styles["Button"]
+
+					local class = Render:class("MainFrame")
+					class:draggable()
+				end,
+				OnHover = function(self, isHovering, x, y)
+					if not isHovering then
+						self.Properties.Style = styles["Button"]
+
+						local class = Render:class("MainFrame")
+						class:draggable()
+					else
+						self.Properties.Style = styles["Button:OnHover"]
+						createSplashEffect(Render:class("ButtonDragger").Object, x, y)
+					end
+				end,
+				OnMoved = function(self, x, y)
+					Render:class("MainFrame").Attributes["MousePosition"] = Vector2.new(x, y)
 				end
-			end
+			}),
 		}),
-	}),
-})
+	})
 
-Render.RBXSignal.UpdateHeartBeat = RunService.Heartbeat:Connect(function()
-	Render:update()
-end)
-
---
-return function() end
+	Render.RBXSignal.UpdateHeartBeat = RunService.Heartbeat:Connect(function()
+		Render:update()
+	end)
+end
