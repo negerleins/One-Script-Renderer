@@ -1,0 +1,12 @@
+{
+  "name": "BlockspinVerminScripts",
+  "tree": {
+    "$className": "DataModel",
+
+    "StarterGui": {
+      "local": {
+        "$path": "src/local"
+      }
+    }
+  }
+}
